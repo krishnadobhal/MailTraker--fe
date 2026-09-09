@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react';
 type OpenRow = {
   email: string;
   subject: string;
+  campaign: string;
   opened_at: string;
   user_agent: string | null;
   is_proxy: boolean;
@@ -16,6 +17,7 @@ const fmt = (s: string) => new Date(s).toLocaleString();
 export default function OpensPage() {
   const [campaign, setCampaign] = useState('');
   const [rows, setRows] = useState<OpenRow[] | null>(null);
+  const [scope, setScope] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -24,11 +26,16 @@ export default function OpensPage() {
     setLoading(true);
     setErr('');
     setRows(null);
+    const c = campaign.trim();
     try {
-      const r = await fetch(`/api/opens?campaign=${encodeURIComponent(campaign)}`);
+      const qs = c ? `?campaign=${encodeURIComponent(c)}` : '';
+      const r = await fetch(`/api/opens${qs}`);
       const data = await r.json();
       if (!r.ok) setErr(data.error ?? `HTTP ${r.status}`);
-      else setRows(data as OpenRow[]);
+      else {
+        setRows(data as OpenRow[]);
+        setScope(c || 'all campaigns');
+      }
     } catch (e2) {
       setErr(String(e2));
     } finally {
@@ -42,15 +49,16 @@ export default function OpensPage() {
     <main>
       <h1>Open events</h1>
       <p className="sub">
-        One row per pixel hit for a campaign (newest first, max 500). IPs are
-        stored hashed — <code>ip_hash</code> is all we keep.
+        One row per pixel hit (newest first, max 500). Leave the campaign blank to
+        list every campaign. IPs are stored hashed — <code>ip_hash</code> is all
+        we keep.
       </p>
 
       <section>
         <form onSubmit={load} className="inline">
           <label style={{ flex: 1 }}>
-            Campaign
-            <input required value={campaign} onChange={(e) => setCampaign(e.target.value)} />
+            Campaign <span style={{ fontWeight: 400, opacity: 0.6 }}>(blank = all)</span>
+            <input value={campaign} onChange={(e) => setCampaign(e.target.value)} />
           </label>
           <button disabled={loading}>{loading ? 'Loading…' : 'Load'}</button>
         </form>
@@ -58,7 +66,8 @@ export default function OpensPage() {
         {err && <pre className="err">{err}</pre>}
         {rows && (
           <p className="sub" style={{ marginTop: 12 }}>
-            {rows.length} hit{rows.length === 1 ? '' : 's'} · {humans} human · {rows.length - humans} proxy/scanner
+            {scope}: {rows.length} hit{rows.length === 1 ? '' : 's'} · {humans} human ·{' '}
+            {rows.length - humans} proxy/scanner
           </p>
         )}
         {rows && rows.length > 0 && (
@@ -67,6 +76,7 @@ export default function OpensPage() {
               <thead>
                 <tr>
                   <th>Opened at</th>
+                  <th>Campaign</th>
                   <th>Email</th>
                   <th>Subject</th>
                   <th>Kind</th>
@@ -78,6 +88,7 @@ export default function OpensPage() {
                 {rows.map((r, i) => (
                   <tr key={i}>
                     <td>{fmt(r.opened_at)}</td>
+                    <td>{r.campaign}</td>
                     <td>{r.email}</td>
                     <td>{r.subject}</td>
                     <td>{r.is_proxy ? 'proxy' : 'human'}</td>

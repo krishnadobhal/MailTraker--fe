@@ -9,15 +9,12 @@ export async function GET(req: Request) {
     return Response.json({ error: 'TRACKER_URL / TRACKER_API_KEY not set' }, { status: 500 });
   }
 
-  const campaign = new URL(req.url).searchParams.get('campaign');
-  if (!campaign) {
-    return Response.json({ error: 'campaign query param required' }, { status: 400 });
-  }
+  const campaign = new URL(req.url).searchParams.get('campaign')?.trim();
+  const path = campaign
+    ? `/api/opens/${encodeURIComponent(campaign)}`
+    : '/api/opens'; // no campaign -> all events
 
-  const upstream = await fetch(
-    `${base}/api/opens/${encodeURIComponent(campaign)}`,
-    { headers: { 'x-api-key': key } }
-  );
+  const upstream = await fetch(`${base}${path}`, { headers: { 'x-api-key': key } });
 
   return new Response(await upstream.text(), {
     status: upstream.status,
