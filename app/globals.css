@@ -41,6 +41,7 @@ section {
 
 form { display: flex; flex-direction: column; gap: 12px; }
 form.inline { flex-direction: row; align-items: flex-end; gap: 8px; }
+form.inline button { align-self: flex-end; } /* override button's flex-start default */
 
 label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
 label.row { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }

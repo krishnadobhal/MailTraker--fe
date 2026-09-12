@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { getStoredPassword, storePassword } from '../lib/password';
 
 type OpenRow = {
   email: string;
@@ -15,32 +16,45 @@ type OpenRow = {
 const fmt = (s: string) => new Date(s).toLocaleString();
 
 export default function OpensPage() {
+  const [password, setPassword] = useState(getStoredPassword);
   const [campaign, setCampaign] = useState('');
   const [rows, setRows] = useState<OpenRow[] | null>(null);
   const [scope, setScope] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function load(e: FormEvent) {
-    e.preventDefault();
+  async function runLoad(c: string, pwd: string) {
     setLoading(true);
     setErr('');
     setRows(null);
-    const c = campaign.trim();
     try {
       const qs = c ? `?campaign=${encodeURIComponent(c)}` : '';
-      const r = await fetch(`/api/opens${qs}`);
+      const r = await fetch(`/api/opens${qs}`, { headers: { 'x-app-password': pwd } });
       const data = await r.json();
       if (!r.ok) setErr(data.error ?? `HTTP ${r.status}`);
       else {
         setRows(data as OpenRow[]);
         setScope(c || 'all campaigns');
+        storePassword(pwd);
       }
     } catch (e2) {
       setErr(String(e2));
     } finally {
       setLoading(false);
     }
+  }
+
+  // Load everything once on first visit, using whatever password is already
+  // remembered (from the Send page). If none is stored yet this 401s and the
+  // error tells you to enter it below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    runLoad('', password);
+  }, []);
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    runLoad(campaign.trim(), password);
   }
 
   const humans = rows?.filter((r) => !r.is_proxy).length ?? 0;
@@ -55,10 +69,24 @@ export default function OpensPage() {
       </p>
 
       <section>
-        <form onSubmit={load} className="inline">
+        <form onSubmit={onSubmit} className="inline">
+          <label style={{ width: 160 }}>
+            Password
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
           <label style={{ flex: 1 }}>
-            Campaign <span style={{ fontWeight: 400, opacity: 0.6 }}>(blank = all)</span>
-            <input value={campaign} onChange={(e) => setCampaign(e.target.value)} />
+            Campaign
+            <input
+              value={campaign}
+              onChange={(e) => setCampaign(e.target.value)}
+              placeholder="blank = all"
+            />
           </label>
           <button disabled={loading}>{loading ? 'Loading…' : 'Load'}</button>
         </form>

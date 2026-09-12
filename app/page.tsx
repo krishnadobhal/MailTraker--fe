@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { getStoredPassword, storePassword } from './lib/password';
 
 type SendResult = { ok?: boolean; token?: string; error?: string; detail?: string };
 
@@ -24,14 +25,6 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 const fmt = (s: string | null) => (s ? new Date(s).toLocaleString() : '—');
-
-function getStoredPassword(): string {
-  try {
-    return localStorage.getItem('mt_password') ?? '';
-  } catch {
-    return ''; // private browsing / blocked storage
-  }
-}
 
 export default function Page() {
   // --- send form ---
@@ -73,13 +66,7 @@ export default function Page() {
         headers: { 'content-type': 'application/json', 'x-app-password': password },
         body: JSON.stringify(payload),
       });
-      if (r.ok) {
-        try {
-          localStorage.setItem('mt_password', password);
-        } catch {
-          /* private browsing / blocked storage — not fatal */
-        }
-      }
+      if (r.ok) storePassword(password);
       setResult(await r.json());
     } catch (err) {
       setResult({ error: String(err) });
